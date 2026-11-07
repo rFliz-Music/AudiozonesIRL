@@ -1,136 +1,147 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#111827">
-<title>Walk Score — GPS Test</title>
-<style>
-  :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
-  * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100vh; background: #0b1020; color: #eef2ff; display: grid; place-items: center; padding: 20px; }
-  main { width: min(100%, 560px); }
-  h1 { font-size: clamp(2rem, 8vw, 3rem); letter-spacing: -.05em; margin: 0 0 8px; }
-  .sub { color: #9ca3af; margin: 0 0 28px; line-height: 1.5; }
-  .panel { background: #151d30; border: 1px solid #29344b; border-radius: 20px; padding: 20px; margin: 14px 0; }
-  .status { display: flex; align-items: center; gap: 10px; color: #cbd5e1; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: #64748b; }
-  .dot.live { background: #34d399; box-shadow: 0 0 14px #34d39988; }
-  button { appearance: none; border: 0; border-radius: 13px; padding: 15px 18px; width: 100%; font-size: 1rem; font-weight: 700; color: #07111f; background: #a7f3d0; cursor: pointer; margin-top: 18px; }
-  button.stop { color: #fee2e2; background: #7f1d1d; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .metric small { display: block; color: #94a3b8; margin-bottom: 7px; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; }
-  .metric strong { font-size: clamp(1.15rem, 4vw, 1.55rem); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-  .wide { grid-column: 1 / -1; }
-  #message { color: #cbd5e1; line-height: 1.5; min-height: 1.5em; }
-  #log { color: #94a3b8; font-size: .82rem; line-height: 1.5; white-space: pre-wrap; }
-  footer { color: #64748b; font-size: .78rem; line-height: 1.5; margin-top: 22px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#111c2d">
+
+    <title>IRL AudioZones</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <!-- Leaflet Draw -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+
+    <!-- Application styles -->
+    <link rel="stylesheet" href="./styles.css">
 </head>
+
 <body>
-<main>
-  <h1>Walk Score</h1>
-  <p class="sub">A tiny GPS listener for the spatial music prototype.</p>
 
-  <section class="panel">
-    <div class="status"><span id="dot" class="dot"></span><span id="status">Location is off</span></div>
-    <button id="toggle">Start tracking</button>
-    <p id="message" role="status">Press start and allow location access when your browser asks.</p>
-  </section>
+    <header class="topbar">
+        <div class="brand">
+            <h1>AudioZones</h1>
+            <span>IRL</span>
+        </div>
+    </header>
 
-  <section class="panel grid" aria-live="polite">
-    <div class="metric"><small>Latitude</small><strong id="lat">—</strong></div>
-    <div class="metric"><small>Longitude</small><strong id="lon">—</strong></div>
-    <div class="metric"><small>Accuracy</small><strong id="accuracy">—</strong></div>
-    <div class="metric"><small>Speed</small><strong id="speed">—</strong></div>
-    <div class="metric"><small>Heading</small><strong id="heading">—</strong></div>
-    <div class="metric"><small>Updates</small><strong id="updates">0</strong></div>
-    <div class="metric wide"><small>Last GPS fix</small><strong id="timestamp">—</strong></div>
-  </section>
+    <main>
+        <div id="map"></div>
 
-  <section class="panel">
-    <div class="metric"><small>Latest position (copyable)</small></div>
-    <p id="coords" style="font-variant-numeric:tabular-nums;overflow-wrap:anywhere;color:#a7f3d0">No position yet</p>
-    <div id="log">Waiting for GPS…</div>
-  </section>
-  <footer>
-    Location is read in this browser and is not uploaded or stored by this page.
-    Keep this page open while walking. GPS availability and update frequency vary by phone and browser.
-    Use HTTPS when hosting this page; localhost is allowed for development.
-  </footer>
-</main>
-<script>
-(() => {
-  const $ = id => document.getElementById(id);
-  let watchId = null, count = 0;
-  const setStatus = (text, live) => {
-    $('status').textContent = text;
-    $('dot').classList.toggle('live', !!live);
-  };
-  const fmt = (n, digits=6) => Number.isFinite(n) ? n.toFixed(digits) : '—';
-  const log = text => $('log').textContent = text;
+        <aside id="panel" class="panel">
 
-  function stop() {
-    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-    watchId = null;
-    $('toggle').textContent = 'Start tracking';
-    $('toggle').classList.remove('stop');
-    setStatus('Location is off', false);
-  }
+            <!-- PLAYBACK / MODE -->
+            <section class="card">
+                <h2>Play</h2>
+                <div class="mode-buttons">
+                    <button id="btn-sim" type="button">Simulate</button>
+                    <button id="btn-gps" type="button">Use GPS</button>
+                    <button id="btn-stop" type="button" class="danger" hidden>Stop</button>
+                </div>
+                <div class="status">
+                    <span id="status-dot" class="dot"></span>
+                    <span id="status-text">Stopped</span>
+                </div>
+                <p id="status-detail" class="muted small"></p>
+                <p class="muted small">
+                    Inside: <strong id="status-active">—</strong>
+                </p>
+                <label class="field inline-field">
+                    <span>Ignore GPS fixes worse than (m)</span>
+                    <input id="gps-max-accuracy" type="number" min="5" max="500" step="5">
+                </label>
+            </section>
 
-  function onPosition(position) {
-    const c = position.coords;
-    count++;
-    $('lat').textContent = fmt(c.latitude, 7);
-    $('lon').textContent = fmt(c.longitude, 7);
-    $('accuracy').textContent = Number.isFinite(c.accuracy) ? `± ${Math.round(c.accuracy)} m` : '—';
-    $('speed').textContent = Number.isFinite(c.speed) ? `${(c.speed * 3.6).toFixed(1)} km/h` : '—';
-    $('heading').textContent = Number.isFinite(c.heading) ? `${Math.round(c.heading)}°` : '—';
-    $('updates').textContent = count;
-    $('timestamp').textContent = new Date(position.timestamp).toLocaleTimeString();
-    $('coords').textContent = `${fmt(c.latitude, 7)}, ${fmt(c.longitude, 7)}`;
-    $('message').textContent = 'Receiving GPS updates. Walk around and watch the coordinates change.';
-    log(`GPS fix #${count}\nAccuracy radius: ${Math.round(c.accuracy)} m\nTimestamp: ${new Date(position.timestamp).toISOString()}`);
-  }
+            <!-- ZONE LIST -->
+            <section class="card">
+                <h2>Zones</h2>
+                <p id="zone-empty" class="muted small">
+                    Use the polygon tool (⬟) on the map to draw a zone.
+                </p>
+                <ul id="zone-list" class="zone-list"></ul>
+            </section>
 
-  function onError(error) {
-    const messages = {
-      1: 'Location permission was denied. Allow location access in your browser settings and try again.',
-      2: 'Your device could not determine a location. Try moving outdoors or checking location services.',
-      3: 'The GPS request timed out. Keep tracking on; the browser may provide another fix.'
-    };
-    $('message').textContent = messages[error.code] || error.message || 'Unable to read location.';
-    log(`GPS error (${error.code}): ${error.message}`);
-    if (error.code === 1) stop();
-  }
+            <!-- ZONE EDITOR -->
+            <section id="zone-editor" class="card" hidden>
+                <h2>Edit zone</h2>
 
-  $('toggle').addEventListener('click', () => {
-    if (watchId !== null) { stop(); $('message').textContent = 'Tracking stopped.'; return; }
-    if (!('geolocation' in navigator)) {
-      $('message').textContent = 'This browser does not support geolocation.';
-      return;
-    }
-    if (!window.isSecureContext) {
-      $('message').textContent = 'GPS requires HTTPS (or localhost). Open this page from a secure website.';
-      return;
-    }
-    count = 0;
-    $('toggle').textContent = 'Stop tracking';
-    $('toggle').classList.add('stop');
-    setStatus('Requesting location permission…', false);
-    $('message').textContent = 'Waiting for the first GPS fix…';
-    watchId = navigator.geolocation.watchPosition(onPosition, onError, {
-      enableHighAccuracy: true,
-      maximumAge: 1000,
-      timeout: 20000
-    });
-    setStatus('Tracking requested', true);
-  });
+                <label class="field">
+                    <span>Name</span>
+                    <input id="zone-name" type="text">
+                </label>
 
-  window.addEventListener('pagehide', stop);
-})(); 
+                <div class="field">
+                    <span>Audio</span>
+                    <p id="zone-audio-label" class="muted small">No audio assigned</p>
+                    <label class="file-button">
+                        Upload file…
+                        <input id="zone-audio-file" type="file" accept="audio/*" hidden>
+                    </label>
+                    <div class="row">
+                        <input id="zone-audio-url" type="url" placeholder="…or paste an audio URL">
+                        <button id="zone-audio-url-btn" type="button">Use</button>
+                    </div>
+                </div>
 
-</script>
+                <label class="field">
+                    <span>Volume <output id="zone-volume-out"></output></span>
+                    <input id="zone-volume" type="range" min="0" max="1" step="0.01">
+                </label>
+
+                <label class="check">
+                    <input id="zone-loop" type="checkbox">
+                    <span>Loop while inside</span>
+                </label>
+
+                <div class="row">
+                    <label class="field">
+                        <span>Fade in (s)</span>
+                        <input id="zone-fade-in" type="number" min="0" max="30" step="0.1">
+                    </label>
+                    <label class="field">
+                        <span>Fade out (s)</span>
+                        <input id="zone-fade-out" type="number" min="0" max="30" step="0.1">
+                    </label>
+                </div>
+
+                <div class="row">
+                    <button id="zone-preview" type="button">▶ Preview</button>
+                    <button id="zone-delete" type="button" class="danger">Delete zone</button>
+                </div>
+            </section>
+
+            <!-- IMPORT / EXPORT -->
+            <section class="card">
+                <h2>Project</h2>
+                <div class="row">
+                    <button id="btn-export" type="button">Export JSON</button>
+                    <label class="file-button">
+                        Import JSON
+                        <input id="file-import" type="file" accept=".json,application/json" hidden>
+                    </label>
+                </div>
+                <div class="row">
+                    <button id="btn-example" type="button">Load bundled example</button>
+                </div>
+                <p class="muted small">
+                    Zones save automatically in this browser. Uploaded audio files stay on
+                    this device; to share a project, put the audio in the repo's
+                    <code>audio/</code> folder and use URLs like <code>audio/song.mp3</code>.
+                </p>
+            </section>
+
+        </aside>
+    </main>
+
+    <!-- Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Leaflet Draw -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+    <!-- Application -->
+    <script type="module" src="./js/main.js"></script>
+
 </body>
 </html>
